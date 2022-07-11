@@ -1,0 +1,21 @@
+# Simulation
+pybullet
+tensorboard
+future
+scipy
+scikit-image
+pyyaml
+munch
+jupyter
+pandas
+tqdm
+prompt-toolkit
+Cython
+opencv-python
+pyqt5
+fpdf
+# Real robot
+anki-vector
+zeroconf
+opencv-contrib-python
+pyglet
