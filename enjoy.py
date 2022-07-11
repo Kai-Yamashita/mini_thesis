@@ -24,11 +24,16 @@ def main(args):
     # Run policy
     state = env.reset()
     try:
+        step_count = 0
         while True:
             action = policy.step(state)
             state, _, done, _ = env.step(action)
+            step_count += 1
             if done:
                 state = env.reset()
+                print(step_count)
+                step_count = 0
+
     finally:
         env.close()
 

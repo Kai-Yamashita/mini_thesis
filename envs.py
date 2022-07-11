@@ -1074,6 +1074,7 @@ class PushingRobot(Robot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.cube_dist_closer = 0
+        self.robot_type = None
 
     def store_new_action(self, action):
         super().store_new_action(action)
@@ -1185,6 +1186,7 @@ class LiftingRobot(RobotWithHooks):
         self.lift_cid = None
         self.cube_id = None
 
+        self.robot_type = None
         # Partial rewards
         self.initial_cube_position = None
         self.cube_dist_closer = 0
@@ -1296,6 +1298,7 @@ class ThrowingRobot(RobotWithHooks):
         self.cube_id = None
         self.initial_cube_position = None
         self.cube_dist_closer = 0
+        self.robot_type = None
 
     def store_new_action(self, action):
         super().store_new_action(action)
@@ -2107,14 +2110,18 @@ class Mapper:
         # History map
         if self.env.use_history_map:
             global_history_map = self._create_global_intention_or_history_map(encoding='history')
-            local_history_map = self._get_local_map(global_history_map)
+            local_history_map = self._get_local_map(global_history_map[0])
+            local_history_map_type = self._get_local_map(global_history_map[1])
             channels.append(local_history_map)
+            channels.append(local_history_map_type)
 
         # Intention map
         if self.env.use_intention_map:
             global_intention_map = self._create_global_intention_or_history_map(encoding=self.env.intention_map_encoding)
-            local_intention_map = self._get_local_map(global_intention_map)
+            local_intention_map = self._get_local_map(global_intention_map[0])
+            local_intention_map_type = self._get_local_map(global_intention_map[1])
             channels.append(local_intention_map)
+            channels.append(local_intention_map_type)
 
         # Baseline intention channels
         if self.env.use_intention_channels:
@@ -2310,6 +2317,7 @@ class Mapper:
 
     def _create_global_intention_or_history_map(self, encoding):
         global_intention_map = self._create_padded_room_zeros()
+        global_intention_map = np.ndarray([global_intention_map, global_intention_map])
         for robot in self.env.robots:
             if robot is self.robot or robot.is_idle():
                 continue
@@ -2326,6 +2334,7 @@ class Mapper:
             elif encoding == 'history':
                 waypoint_positions = robot.controller.get_history_path()[::-1]
 
+            robot_type = None
             path_length = 0
             for i in range(1, len(waypoint_positions)):
                 source_position = waypoint_positions[i - 1]
@@ -2339,19 +2348,21 @@ class Mapper:
                 if encoding in {'binary', 'line'}:
                     if i < len(waypoint_positions) - 1:
                         rr, cc = rr[:-1], cc[:-1]
-                    global_intention_map[rr, cc] = self.env.intention_map_scale
+                    global_intention_map[0][rr, cc] = self.env.intention_map_scale
+                    global_intention_map[1][rr, cc] = robot_type
                 elif encoding in {'ramp', 'history'}:
                     line_values = np.clip(np.linspace(1 - path_length, 1 - (path_length + segment_length), len(rr)), 0, 1)
                     if i < len(waypoint_positions) - 1:
                         rr, cc = rr[:-1], cc[:-1]
                         line_values = line_values[:-1]
-                    global_intention_map[rr, cc] = np.maximum(global_intention_map[rr, cc], line_values)
+                    global_intention_map[0][rr, cc] = np.maximum(global_intention_map[rr, cc], line_values)
+                    global_intention_map[1][rr, cc] = robot_type
 
                 path_length += segment_length
 
         # Make lines thicker
         if self.env.intention_map_line_thickness > 1:
-            global_intention_map = dilation(global_intention_map, self.intention_map_selem)
+            global_intention_map[0] = dilation(global_intention_map[0], self.intention_map_selem)
 
         return global_intention_map
 
